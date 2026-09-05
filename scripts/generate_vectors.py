@@ -85,7 +85,31 @@ def main():
         ("published_public",           b"openly readable payload", 1),
         ("post_revoke_shared_world",   os.urandom(1024 * 1024), 4),
     ]
-    total = generic + scenarios
+    # Real VRM 1.0 avatar (SK_VRM1_Constraint_Twist_Sample, MIT-ish per
+    # the repo's LICENSE.md) as a realistic payload for the friends-list
+    # scenario. Skipped if the file isn't in the workspace yet.
+    vrm_candidates = [
+        REPO.parents[2] / "6-datasource" / "sk-vrm1-constraint-twist-sample"
+            / "Constraint_Twist_Sample" / "Art" / "VRM1"
+            / "VRM1_Constraint_Twist_Sample_01.vrm",
+        pathlib.Path("/tmp/vrm-sample/Constraint_Twist_Sample/Art/VRM1/"
+                     "VRM1_Constraint_Twist_Sample_01.vrm"),
+    ]
+    real_vrm = []
+    vrm_path = next((p for p in vrm_candidates if p.exists()), None)
+    if vrm_path:
+        print(f"  found VRM at {vrm_path}")
+        vrm_bytes = vrm_path.read_bytes()
+        real_vrm.append(("vrm_avatar_friends_list", vrm_bytes, 10))
+        # Data-buffer blob: VRM + one significant texture concatenated,
+        # symbolising an avatar bundle a social-VR platform ships as
+        # one unit. Uses the largest texture in the sample repo.
+        tex = vrm_path.parents[1] / "Blend" / "textures" / "Thumbnail.png"
+        if tex.exists():
+            bundle = vrm_bytes + tex.read_bytes()
+            real_vrm.append(("vrm_and_texture_bundle", bundle, 5))
+            print(f"  found texture at {tex}")
+    total = generic + scenarios + real_vrm
     for name, pt, nr in total:
         blob = vector(name, pt, nr)
         (OUT / name).write_bytes(blob)

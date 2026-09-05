@@ -15,12 +15,14 @@ this workspace yet.
 """
 
 import argparse
+import base64
 import hashlib
 import os
 import pathlib
 import sqlite3
 import sys
 import tempfile
+import zlib
 
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -82,6 +84,23 @@ def hkdf(ikm, salt, info, length):
 
 def sha512_256(data):
     return hashlib.sha512(data).digest()[:32]
+
+
+def unarmor(wire):
+    lines = wire.splitlines()
+    body_lines = []
+    inside = False
+    for ln in lines:
+        s = ln.strip()
+        if s.startswith(b"-----BEGIN AGE"):
+            inside = True
+            continue
+        if s.startswith(b"-----END AGE"):
+            inside = False
+            continue
+        if inside and s:
+            body_lines.append(s)
+    return base64.b64decode(b"".join(body_lines))
 
 
 def age_wire_split(wire):
@@ -204,8 +223,11 @@ def main():
     headers, wire = parse_vector(vector)
     if headers.get("expect") != "success":
         sys.exit(f"skipping non-success vector ({headers.get('expect')})")
-    if headers.get("compressed"):
-        sys.exit(f"skipping compressed vector (CCTV extension, not age v1.1.0)")
+
+    if headers.get("compressed", "").lower() == "zlib":
+        wire = zlib.decompress(wire)
+    if headers.get("armored", "").lower() in ("yes", "true"):
+        wire = unarmor(wire)
 
     print(f"vector: {args.vector}")
     print(f"  expected payload sha256: {headers['payload']}")

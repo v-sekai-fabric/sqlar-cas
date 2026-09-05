@@ -30,36 +30,10 @@ from cryptography.hazmat.primitives import hashes
 import zstandard as zstd
 
 HERE = pathlib.Path(__file__).resolve()
+sys.path.insert(0, str(HERE.parent))
+from sqlar_cas_py import Bao  # noqa: E402
+
 CCTV_ROOT = HERE.parents[3] / "6-datasource" / "cctv" / "age" / "testdata"
-
-
-class Bao:
-    """Models Bao's ReBAC. Grants are (subject, object, relation) tuples;
-    a wrap insertion is authorized iff the grant is present. Enumeration
-    tells the ingest path who to wrap for. Not a stub -- a real Bao
-    replaces this class through the same interface."""
-
-    def __init__(self):
-        self._grants: set[tuple[str, str, str]] = set()
-        self._wrap_writes: list[tuple[str, str]] = []
-
-    def grant(self, subject: str, obj: str) -> None:
-        self._grants.add((subject, obj, "reader"))
-
-    def revoke(self, subject: str, obj: str) -> None:
-        self._grants.discard((subject, obj, "reader"))
-
-    def authorize_write_wrap(self, subject: str, obj: str) -> bool:
-        ok = (subject, obj, "reader") in self._grants
-        if ok:
-            self._wrap_writes.append((subject, obj))
-        return ok
-
-    def enumerate_recipients(self, obj: str) -> list[str]:
-        return [s for (s, o, _r) in self._grants if o == obj]
-
-    def audit_log(self) -> list[tuple[str, str]]:
-        return list(self._wrap_writes)
 
 
 def parse_vector(path):
@@ -246,8 +220,8 @@ def main():
     print("  ok  age STREAM decrypt matches CCTV expected hash")
 
     bao = Bao()
-    bao.grant("alice", args.vector)
-    bao.grant("bob", args.vector)
+    bao.grant(args.vector, "reader", "alice")
+    bao.grant(args.vector, "reader", "bob")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".sqlite") as tmp:
         db_path = tmp.name
@@ -276,7 +250,7 @@ def main():
             sys.exit("sqlar-cas roundtrip failed")
         print("  ok  sqlar-cas extract roundtrip bit-for-bit")
 
-        bao.revoke("alice", args.vector)
+        bao.revoke(args.vector, "reader", "alice")
         try:
             _ = sqlar_ingest(b"secondary", args.vector + ".v2", db, bao,
                              ["alice"])

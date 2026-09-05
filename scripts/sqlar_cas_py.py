@@ -262,3 +262,54 @@ def priv_to_bytes(priv):
 
 def pub_to_bytes(pub):
     return pub.public_bytes(Encoding.Raw, PublicFormat.Raw)
+
+
+class Bao:
+    """Zanzibar-style ReBAC. Tuples are (object, relation, userset).
+    A userset is either a plain subject or 'object#relation' — a
+    computed userset that expand() resolves recursively (cycle-safe).
+
+    The store as rebase: file_key + chunks are the base; the wrap set
+    is a rebase of grants/revokes on top. A grant is a commit; a
+    revoke is a revert. Recursive relations let a change to a group
+    (a new member, or someone leaving) ripple to every object that
+    grants readers to that group#member — the joined-the-world case.
+    """
+
+    def __init__(self):
+        self._tuples = set()  # {(object, relation, userset)}
+        self._audit = []
+
+    def grant(self, obj, relation, userset):
+        self._tuples.add((obj, relation, userset))
+        self._audit.append(("grant", obj, relation, userset))
+
+    def revoke(self, obj, relation, userset):
+        self._tuples.discard((obj, relation, userset))
+        self._audit.append(("revoke", obj, relation, userset))
+
+    def expand(self, obj, relation, seen=None):
+        seen = seen or set()
+        if (obj, relation) in seen:
+            return set()
+        seen = seen | {(obj, relation)}
+        out = set()
+        for (o, r, u) in self._tuples:
+            if o != obj or r != relation:
+                continue
+            if "#" in u:
+                sub_obj, sub_rel = u.split("#", 1)
+                out |= self.expand(sub_obj, sub_rel, seen)
+            else:
+                out.add(u)
+        return out
+
+    def authorize_write_wrap(self, subject, obj):
+        return subject in self.expand(obj, "reader")
+
+    def enumerate_recipients(self, obj):
+        return sorted(self.expand(obj, "reader"))
+
+    def audit_log(self):
+        return list(self._audit)
+

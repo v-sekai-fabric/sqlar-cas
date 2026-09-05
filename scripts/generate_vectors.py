@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from sqlar_cas_py import (  # noqa: E402
-    build_sqlite, ingest_plaintext, priv_to_bytes, pub_to_bytes,
+    Bao, build_sqlite, ingest_plaintext, priv_to_bytes, pub_to_bytes,
 )
 
 REPO = HERE.parent
@@ -31,10 +31,15 @@ def gen_recipients(n):
     return out
 
 
-def vector(name, plaintext, num_recipients):
-    recipients = gen_recipients(num_recipients)
+def vector(name, plaintext, num_recipients, recipients=None,
+           file_key=None, dek_id=None, payload_nonce=None):
+    if recipients is None:
+        recipients = gen_recipients(num_recipients)
     pubs = [pub_to_bytes(p) for _, p in recipients]
-    ing = ingest_plaintext(plaintext, name, pubs)
+    ing = ingest_plaintext(
+        plaintext, name, pubs,
+        file_key=file_key, dek_id=dek_id, payload_nonce=payload_nonce,
+    )
     sqlite_blob = build_sqlite(name, ing)
 
     header = [
@@ -54,6 +59,31 @@ def vector(name, plaintext, num_recipients):
 
     body = sqlite_blob
     return b"\n".join(l.encode() for l in header) + b"\n\n" + body
+
+
+def gen_joined_world():
+    """Three vectors sharing file_key + dek_id + payload_nonce + content;
+    only the wrap set rebases as members join/leave the friends group."""
+    world_content = os.urandom(1024 * 1024)
+    file_key = os.urandom(16)
+    dek_id = os.urandom(16)
+    payload_nonce = os.urandom(16)
+    people = {n: X25519PrivateKey.generate()
+              for n in ("alice", "bob", "charlie", "dave")}
+
+    def make(members):
+        bao = Bao()
+        bao.grant("world", "reader", "friends#member")
+        for n in members:
+            bao.grant("friends", "member", n)
+        expanded = bao.enumerate_recipients("world")
+        return [(people[n], people[n].public_key()) for n in expanded]
+
+    return [
+        ("world_v0_initial",            make(["alice", "bob", "charlie"])),
+        ("world_v1_dave_joined_group",  make(["alice", "bob", "charlie", "dave"])),
+        ("world_v2_alice_left_group",   make(["bob", "charlie", "dave"])),
+    ], world_content, file_key, dek_id, payload_nonce
 
 
 def main():
@@ -114,7 +144,18 @@ def main():
         blob = vector(name, pt, nr)
         (OUT / name).write_bytes(blob)
         print(f"  wrote {name} ({len(pt)} B plaintext, {nr} recipient(s) -> {len(blob)} B vector)")
-    print(f"generated {len(total)} vectors in {OUT}")
+
+    # Join-the-world: three vectors sharing base (file_key + chunks),
+    # wrap set rebases on top as the friends group evolves.
+    jw_vectors, jw_content, jw_fk, jw_dek, jw_nonce = gen_joined_world()
+    for name, recipients in jw_vectors:
+        blob = vector(name, jw_content, len(recipients),
+                      recipients=recipients, file_key=jw_fk,
+                      dek_id=jw_dek, payload_nonce=jw_nonce)
+        (OUT / name).write_bytes(blob)
+        print(f"  wrote {name} ({len(jw_content)} B plaintext, {len(recipients)} recipient(s) -> {len(blob)} B vector)")
+
+    print(f"generated {len(total) + len(jw_vectors)} vectors in {OUT}")
 
 
 if __name__ == "__main__":

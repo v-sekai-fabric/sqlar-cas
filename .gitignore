@@ -1,0 +1,11 @@
+/.lake/
+**/.lake/
+**/build/
+*.olean
+*.hash
+
+# C build artefacts (once the impl lands per-layer)
+*.o
+*.so
+*.dylib
+*.a

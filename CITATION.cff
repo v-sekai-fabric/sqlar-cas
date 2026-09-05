@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "sqlar-cas"
+abstract: "Content-addressable chunk store using casync wire format inside SQLite, with ReBAC-envelope encryption at the manifest layer and cross-realm chunk deduplication."
+authors:
+  - family-names: "Lee"
+    given-names: "K. S. Ernest (iFire)"
+    email: "ernest.lee@chibifire.com"
+license:
+  - Apache-2.0
+  - MIT
+repository-code: "https://github.com/weftspun/sqlar-cas"
+date-released: 2026-09-05

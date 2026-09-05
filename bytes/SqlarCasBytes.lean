@@ -4,7 +4,7 @@ namespace SqlarCasBytes
 structure Cursor where
   bytes : ByteArray
   pos   : Nat
-  deriving Repr, Inhabited
+  deriving Inhabited
 
 /-- Read one little-endian `UInt64`. Advances the cursor. -/
 opaque readU64LE : Cursor → Option (UInt64 × Cursor)

@@ -23,7 +23,7 @@ structure Entry where
   id     : ChunkId
   offset : UInt64
   size   : UInt64
-  deriving Repr, Inhabited
+  deriving Inhabited
 
 /-- In-memory caibx. -/
 abbrev Caibx := Array Entry

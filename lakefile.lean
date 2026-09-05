@@ -16,6 +16,10 @@ require «sqlar-cas-crypto»   from "crypto"
 require «sqlar-cas-envelope» from "envelope"
 require «sqlar-cas-sqlar»    from "sqlar"
 require «sqlar-cas-wraps»    from "wraps"
+require «sqlar-cas-age»      from "age"
+require «sqlar-cas-desync»   from "desync"
+
+lean_lib Theorems
 
 @[default_target]
 lean_lib SqlarCas

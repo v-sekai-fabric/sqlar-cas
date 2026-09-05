@@ -17,7 +17,7 @@ def CHUNK_AVG_BYTES : Nat := 64 * 1024
 structure Chunk where
   raw    : ByteArray
   offset : UInt64
-  deriving Repr, Inhabited
+  deriving Inhabited
 
 /-- Cut a byte array into chunks by the buzhash discriminator. Non-last chunks
     sit in `[CHUNK_MIN_BYTES, CHUNK_MAX_BYTES]`; the last chunk may be smaller. -/

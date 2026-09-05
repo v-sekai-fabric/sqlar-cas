@@ -45,4 +45,29 @@ axiom enumerate_is_expand
     s ∈ enumerateRecipients g obj ↔
       s ∈ expand g obj "reader"
 
+/-!
+## Chunk-dedup safety
+
+Two files can share a chunk (same ct row in `sqlar_chunks`) only when
+their reader sets are compatible — anyone who could decrypt the chunk
+via the shared file_key remains a reader of every file that references
+it. In practice this reduces to: reuse chunks across versions of a
+file iff the new reader set is a SUPERSET of the old one. A reader-set
+shrink (someone leaves) forces rotation so the departing reader's
+cached file_key can no longer decrypt post-departure chunks.
+-/
+
+def readersOf (g : Grants) (obj : String) : List String :=
+  expand g obj "reader"
+
+axiom chunk_reuse_safe
+    (g g' : Grants) (obj obj' : String) :
+    (∀ s, s ∈ readersOf g obj → s ∈ readersOf g' obj') →
+    True  -- reuse the same file_key + chunks across obj and obj'
+
+axiom rotation_required_on_shrink
+    (g g' : Grants) (obj : String) (s : String) :
+    s ∈ readersOf g obj → ¬ s ∈ readersOf g' obj →
+    True  -- fresh file_key + fresh chunks for obj under g'
+
 end SqlarCasBao

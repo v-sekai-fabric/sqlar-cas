@@ -17,10 +17,12 @@ HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from sqlar_cas_py import (  # noqa: E402
     Bao, build_sqlite, ingest_plaintext, priv_to_bytes, pub_to_bytes,
+    write_chunks_to_store,
 )
 
 REPO = HERE.parent
 OUT = REPO / "testdata"
+CHUNK_STORE = OUT / "chunks"
 
 
 def gen_recipients(n):
@@ -40,7 +42,8 @@ def vector(name, plaintext, num_recipients, recipients=None,
         plaintext, name, pubs,
         file_key=file_key, dek_id=dek_id, payload_nonce=payload_nonce,
     )
-    sqlite_blob = build_sqlite(name, ing)
+    write_chunks_to_store(ing["chunks"], CHUNK_STORE)
+    sqlite_blob = build_sqlite(name, ing, embed_chunks=False)
 
     header = [
         "expect: success",
@@ -62,12 +65,28 @@ def vector(name, plaintext, num_recipients, recipients=None,
 
 
 def gen_joined_world():
-    """Three vectors sharing file_key + dek_id + payload_nonce + content;
-    only the wrap set rebases as members join/leave the friends group."""
+    """Three vectors evolving the friends group.
+
+    Chunk dedup is only safe when the new reader set is a SUPERSET of
+    the old one — anyone with a cached file_key from the old state
+    still holds a valid key, so we cannot let a chunk they could
+    decrypt end up on a file they no longer read.
+
+    * v0 (alice, bob, charlie)   -- fresh file_key/dek_id/nonce
+    * v1 (v0 + dave)             -- readers grew, REUSE v0's base
+    * v2 (v1 - alice)            -- readers shrank, ROTATE to fresh
+      base so alice's cached key can't decrypt v2's chunks
+
+    Returns [(name, recipients, file_key, dek_id, payload_nonce)]. -/
+    """
     world_content = os.urandom(1024 * 1024)
-    file_key = os.urandom(16)
-    dek_id = os.urandom(16)
-    payload_nonce = os.urandom(16)
+    base_v0v1_fk    = os.urandom(16)
+    base_v0v1_dek   = os.urandom(16)
+    base_v0v1_nonce = os.urandom(16)
+    base_v2_fk      = os.urandom(16)  # rotation: alice was evicted
+    base_v2_dek     = os.urandom(16)
+    base_v2_nonce   = os.urandom(16)
+
     people = {n: X25519PrivateKey.generate()
               for n in ("alice", "bob", "charlie", "dave")}
 
@@ -79,11 +98,17 @@ def gen_joined_world():
         expanded = bao.enumerate_recipients("world")
         return [(people[n], people[n].public_key()) for n in expanded]
 
-    return [
-        ("world_v0_initial",            make(["alice", "bob", "charlie"])),
-        ("world_v1_dave_joined_group",  make(["alice", "bob", "charlie", "dave"])),
-        ("world_v2_alice_left_group",   make(["bob", "charlie", "dave"])),
-    ], world_content, file_key, dek_id, payload_nonce
+    return world_content, [
+        ("world_v0_initial",
+         make(["alice", "bob", "charlie"]),
+         base_v0v1_fk, base_v0v1_dek, base_v0v1_nonce),
+        ("world_v1_dave_joined_group",
+         make(["alice", "bob", "charlie", "dave"]),
+         base_v0v1_fk, base_v0v1_dek, base_v0v1_nonce),
+        ("world_v2_alice_left_group",
+         make(["bob", "charlie", "dave"]),
+         base_v2_fk, base_v2_dek, base_v2_nonce),
+    ]
 
 
 def main():
@@ -145,13 +170,13 @@ def main():
         (OUT / name).write_bytes(blob)
         print(f"  wrote {name} ({len(pt)} B plaintext, {nr} recipient(s) -> {len(blob)} B vector)")
 
-    # Join-the-world: three vectors sharing base (file_key + chunks),
-    # wrap set rebases on top as the friends group evolves.
-    jw_vectors, jw_content, jw_fk, jw_dek, jw_nonce = gen_joined_world()
-    for name, recipients in jw_vectors:
+    # Join-the-world: chunk dedup shares base across v0/v1 (readers
+    # grow) but v2 rotates because alice left (reader-set shrink).
+    jw_content, jw_vectors = gen_joined_world()
+    for name, recipients, fk, dek, nonce in jw_vectors:
         blob = vector(name, jw_content, len(recipients),
-                      recipients=recipients, file_key=jw_fk,
-                      dek_id=jw_dek, payload_nonce=jw_nonce)
+                      recipients=recipients, file_key=fk,
+                      dek_id=dek, payload_nonce=nonce)
         (OUT / name).write_bytes(blob)
         print(f"  wrote {name} ({len(jw_content)} B plaintext, {len(recipients)} recipient(s) -> {len(blob)} B vector)")
 

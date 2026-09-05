@@ -150,7 +150,11 @@ def ingest_plaintext(plaintext, name, recipients_pub, file_key=None,
     }
 
 
-def build_sqlite(name, ingested):
+def build_sqlite(name, ingested, embed_chunks=True):
+    """Serialize a vector as a SQLite blob. When `embed_chunks` is False,
+    the `sqlar_chunks` table is left empty and the verifier fetches
+    chunks from a shared desync-layout store on disk — one chunk per
+    hash regardless of how many vectors reference it."""
     import tempfile
     with tempfile.NamedTemporaryFile(delete=False, suffix=".sqlite") as tmp:
         path = tmp.name
@@ -175,11 +179,12 @@ def build_sqlite(name, ingested):
                 "INSERT INTO sqlar_dek_wraps(dek_id, ephemeral_pub, wrapped_key) VALUES (?,?,?)",
                 (ingested["dek_id"], eph_pub, wrapped),
             )
-        for ct_hash, ct, _pt, _sz in ingested["chunks"]:
-            db.execute(
-                "INSERT OR IGNORE INTO sqlar_chunks(hash, ct) VALUES (?, ?)",
-                (ct_hash, ct),
-            )
+        if embed_chunks:
+            for ct_hash, ct, _pt, _sz in ingested["chunks"]:
+                db.execute(
+                    "INSERT OR IGNORE INTO sqlar_chunks(hash, ct) VALUES (?, ?)",
+                    (ct_hash, ct),
+                )
         db.commit()
         db.close()
         return pathlib.Path(path).read_bytes()
@@ -187,21 +192,44 @@ def build_sqlite(name, ingested):
         os.unlink(path)
 
 
-def extract_from_sqlite(sqlite_bytes, name, recipient_priv_bytes):
+def desync_path(chunk_hash):
+    hx = chunk_hash.hex()
+    return f"{hx[:4]}/{hx}.cacnk"
+
+
+def write_chunks_to_store(chunks, store_root):
+    root = pathlib.Path(store_root)
+    for ct_hash, ct, _pt, _sz in chunks:
+        p = root / desync_path(ct_hash)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if not p.exists() or p.read_bytes() != ct:
+            p.write_bytes(ct)
+
+
+def read_chunk_from_store(store_root, chunk_hash):
+    p = pathlib.Path(store_root) / desync_path(chunk_hash)
+    return p.read_bytes() if p.exists() else None
+
+
+def extract_from_sqlite(sqlite_bytes, name, recipient_priv_bytes,
+                        chunk_store=None):
+    """Reverse of build_sqlite. If the vector's `sqlar_chunks` table is
+    empty and `chunk_store` is given, chunks are fetched from the
+    shared store on disk."""
     import tempfile
     with tempfile.NamedTemporaryFile(delete=False, suffix=".sqlite") as tmp:
         tmp.write(sqlite_bytes)
         path = tmp.name
     try:
         db = sqlite3.connect(path)
-        _plaintext = _extract_from_db(db, name, recipient_priv_bytes)
+        _plaintext = _extract_from_db(db, name, recipient_priv_bytes, chunk_store)
         db.close()
         return _plaintext
     finally:
         os.unlink(path)
 
 
-def _extract_from_db(db, name, recipient_priv_bytes):
+def _extract_from_db(db, name, recipient_priv_bytes, chunk_store=None):
     row = db.execute(
         "SELECT data, dek_id FROM sqlar WHERE name = ?", (name,)
     ).fetchone()
@@ -244,9 +272,18 @@ def _extract_from_db(db, name, recipient_priv_bytes):
     zctx = zstd.ZstdDecompressor()
     out = bytearray()
     for ct_hash, pt_hash, _sz in entries:
-        (ct,) = db.execute(
+        row = db.execute(
             "SELECT ct FROM sqlar_chunks WHERE hash = ?", (ct_hash,)
         ).fetchone()
+        if row is None and chunk_store is not None:
+            ct_bytes = read_chunk_from_store(chunk_store, ct_hash)
+            if ct_bytes is None:
+                raise KeyError(f"chunk {ct_hash.hex()} missing from vector and store")
+            ct = ct_bytes
+        elif row is None:
+            raise KeyError(f"chunk {ct_hash.hex()} missing (no store)")
+        else:
+            ct = row[0]
         raw = zctx.decompress(aead.decrypt(pt_hash[:12], ct, None))
         if sha512_256(raw) != pt_hash:
             raise ValueError("plaintext hash mismatch on chunk")

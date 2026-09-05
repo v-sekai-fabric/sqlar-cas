@@ -18,6 +18,7 @@ from sqlar_cas_py import extract_from_sqlite  # noqa: E402
 
 REPO = HERE.parent
 TESTDATA = REPO / "testdata"
+CHUNK_STORE = TESTDATA / "chunks"
 
 
 def parse_vector(path):
@@ -51,7 +52,9 @@ def main():
     passes = 0
     for i in range(n):
         priv = bytes.fromhex(headers[f"recipient_priv_{i}"])
-        plaintext = extract_from_sqlite(sqlite_blob, headers["name"], priv)
+        plaintext = extract_from_sqlite(
+            sqlite_blob, headers["name"], priv, chunk_store=CHUNK_STORE,
+        )
         computed = hashlib.sha256(plaintext).hexdigest()
         if computed != headers["payload_sha256"]:
             sys.exit(f"recipient {i}: payload mismatch — got {computed}")

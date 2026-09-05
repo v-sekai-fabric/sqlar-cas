@@ -1,0 +1,9 @@
+#usda 1.0
+(defaultPrim = "Mat_0")
+
+def Material "Mat_0"
+{
+    string name = "Body_00_SKIN"
+    int baseColorTextureIndex = 0
+    asset baseColorTexture = @../textures/texture_0.usda@
+}

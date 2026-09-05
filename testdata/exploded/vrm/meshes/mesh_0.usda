@@ -1,0 +1,9 @@
+#usda 1.0
+(defaultPrim = "Mesh_0")
+
+def Mesh "Mesh_0"
+{
+    string name = "Body"
+    int primitiveCount = 5
+    asset[] materials = [@../materials/material_0.usda@, @../materials/material_1.usda@, @../materials/material_2.usda@, @../materials/material_3.usda@, @../materials/material_4.usda@]
+}

@@ -1,0 +1,9 @@
+#usda 1.0
+(defaultPrim = "Mat_10")
+
+def Material "Mat_10"
+{
+    string name = "FaceBrow_00_FACE"
+    int baseColorTextureIndex = 13
+    asset baseColorTexture = @../textures/texture_13.usda@
+}

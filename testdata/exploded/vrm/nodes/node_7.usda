@@ -1,0 +1,10 @@
+#usda 1.0
+(defaultPrim = "Node_7")
+
+def Xform "Node_7"
+{
+    string name = "J_Sec_L_TopsUpperLegBack"
+    asset[] children = [@../nodes/node_8.usda@]
+    int meshIndex = -1
+    asset mesh = ""
+}

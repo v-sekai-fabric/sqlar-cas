@@ -1,0 +1,9 @@
+#usda 1.0
+(defaultPrim = "Mat_11")
+
+def Material "Mat_11"
+{
+    string name = "EyeHighlight_00_EYE"
+    int baseColorTextureIndex = 14
+    asset baseColorTexture = @../textures/texture_14.usda@
+}

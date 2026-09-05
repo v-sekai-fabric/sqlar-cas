@@ -1,0 +1,9 @@
+#usda 1.0
+(defaultPrim = "Image_18")
+
+def Image "Image_18"
+{
+    string mimeType = "image/png"
+    asset uri = @image_18.png@
+    int sizeBytes = 1243889
+}

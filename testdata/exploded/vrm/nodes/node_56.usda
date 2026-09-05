@@ -1,0 +1,10 @@
+#usda 1.0
+(defaultPrim = "Node_56")
+
+def Xform "Node_56"
+{
+    string name = "J_Sec_Hair3_07"
+    asset[] children = [@../nodes/node_57.usda@]
+    int meshIndex = -1
+    asset mesh = ""
+}

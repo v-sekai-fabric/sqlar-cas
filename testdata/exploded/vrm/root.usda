@@ -1,0 +1,14 @@
+#usda 1.0
+(defaultPrim = "Avatar")
+
+def Xform "Avatar"
+{
+    int sceneCount = 1
+    int nodeCount = 171
+    int meshCount = 3
+    int materialCount = 13
+    int textureCount = 18
+    int imageCount = 19
+    int bufferByteLength = 10535756
+    asset defaultScene = @scenes/scene_0.usda@
+}

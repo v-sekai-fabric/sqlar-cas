@@ -1,0 +1,8 @@
+#usda 1.0
+(defaultPrim = "Scene_0")
+
+def Scope "Scene_0"
+{
+    string name = "scene_0"
+    asset[] rootNodes = [@../nodes/node_0.usda@, @../nodes/node_1.usda@, @../nodes/node_2.usda@, @../nodes/node_3.usda@, @../nodes/node_170.usda@]
+}

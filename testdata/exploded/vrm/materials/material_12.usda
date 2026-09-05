@@ -1,0 +1,9 @@
+#usda 1.0
+(defaultPrim = "Mat_12")
+
+def Material "Mat_12"
+{
+    string name = "Hair_00_HAIR"
+    int baseColorTextureIndex = 15
+    asset baseColorTexture = @../textures/texture_15.usda@
+}

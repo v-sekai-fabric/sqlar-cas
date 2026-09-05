@@ -170,6 +170,31 @@ def main():
         (OUT / name).write_bytes(blob)
         print(f"  wrote {name} ({len(pt)} B plaintext, {nr} recipient(s) -> {len(blob)} B vector)")
 
+    # Exploded VRM: one vector per top-level stage directory. root is
+    # a small USDA; the per-dir bundles concatenate the sub-stages
+    # inside so every level of the tree flows through sqlar-cas.
+    exploded_dir = OUT / "exploded" / "vrm"
+    if exploded_dir.exists():
+        exploded_vectors = [("vrm_exploded_root",
+                             (exploded_dir / "root.usda").read_bytes(), 5)]
+        for sub in ("scenes", "meshes", "materials", "textures",
+                    "images", "nodes"):
+            d = exploded_dir / sub
+            if not d.exists():
+                continue
+            parts = []
+            for f in sorted(d.iterdir()):
+                parts.append(f"--- {f.name} ({f.stat().st_size} B) ---\n".encode())
+                parts.append(f.read_bytes())
+                parts.append(b"\n")
+            exploded_vectors.append((f"vrm_exploded_{sub}", b"".join(parts), 5))
+        for name, pt, nr in exploded_vectors:
+            blob = vector(name, pt, nr)
+            (OUT / name).write_bytes(blob)
+            print(f"  wrote {name} ({len(pt)} B plaintext, {nr} recipient(s) -> {len(blob)} B vector)")
+    else:
+        exploded_vectors = []
+
     # Join-the-world: chunk dedup shares base across v0/v1 (readers
     # grow) but v2 rotates because alice left (reader-set shrink).
     jw_content, jw_vectors = gen_joined_world()
@@ -180,7 +205,7 @@ def main():
         (OUT / name).write_bytes(blob)
         print(f"  wrote {name} ({len(jw_content)} B plaintext, {len(recipients)} recipient(s) -> {len(blob)} B vector)")
 
-    print(f"generated {len(total) + len(jw_vectors)} vectors in {OUT}")
+    print(f"generated {len(total) + len(jw_vectors) + len(exploded_vectors)} vectors in {OUT}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,8 @@
+#usda 1.0
+(defaultPrim = "Tex_8")
+
+def Texture "Tex_8"
+{
+    int sourceImage = 8
+    asset image = @../images/image_8.usda@
+}

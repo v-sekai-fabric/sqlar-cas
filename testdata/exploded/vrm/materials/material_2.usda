@@ -1,0 +1,9 @@
+#usda 1.0
+(defaultPrim = "Mat_2")
+
+def Material "Mat_2"
+{
+    string name = "Shoes_01_CLOTH"
+    int baseColorTextureIndex = 3
+    asset baseColorTexture = @../textures/texture_3.usda@
+}

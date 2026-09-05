@@ -9,3 +9,4 @@
 *.so
 *.dylib
 *.a
+.pixi/

@@ -1,0 +1,43 @@
+# Pixi env for sqlar-cas Python scripts. Two envs so verify + explode
+# can install disjoint dep sets without one dragging the other's cost.
+#
+# Use:
+#   pixi run verify single_recipient_small           # crypto round-trip
+#   pixi run explode-v2 --vrm foo.vrm --out out/     # schema-compliant explode
+#   pixi run explode-v2-load out/root.usda            # verify the output opens
+#
+# Rule: no `uv` for project envs per CLAUDE.md — pixi manages the env,
+# scripts don't shell out to pip.
+
+[workspace]
+name = "sqlar-cas"
+version = "0.0.1-dev"
+description = "Content-addressable chunk store (casync + age + ReBAC via wraps)"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-arm64"]
+
+[dependencies]
+python = ">=3.11,<3.13"
+
+[feature.verify.dependencies]
+# scripts/verify_vector.py + scripts/generate_vectors.py deps
+cryptography = "*"
+
+[feature.explode-v2.dependencies]
+# scripts/explode_vrm_v2.py needs pxr (OpenUSD Python bindings) to
+# emit UsdGeom.Mesh / UsdShade.Material with real schema. `openusd`
+# is the conda-forge package name (formerly `usd-core` on PyPI — same
+# bindings, different channel naming convention).
+openusd = ">=26.08"
+numpy = "*"
+
+[environments]
+verify = ["verify"]
+explode-v2 = ["explode-v2"]
+default = ["verify", "explode-v2"]
+
+[tasks]
+verify = "python scripts/verify_vector.py"
+"verify-all" = "python -c \"import subprocess,pathlib,sys; [subprocess.run([sys.executable, 'scripts/verify_vector.py', p.name], check=True) for p in sorted(pathlib.Path('testdata').iterdir()) if p.is_file()]\""
+"explode-v2" = "python scripts/explode_vrm_v2.py"
+"explode-v2-load" = { cmd = "python -c \"import sys; from pxr import Usd; s=Usd.Stage.Open(sys.argv[1]); print('opened:', s); [print(f'  {p.GetPath()} type={p.GetTypeName()}') for p in s.Traverse()]\"" }

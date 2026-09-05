@@ -18,6 +18,7 @@ require «sqlar-cas-sqlar»    from "sqlar"
 require «sqlar-cas-wraps»    from "wraps"
 require «sqlar-cas-age»      from "age"
 require «sqlar-cas-desync»   from "desync"
+require «sqlar-cas-bao»      from "bao"
 
 lean_lib Theorems
 

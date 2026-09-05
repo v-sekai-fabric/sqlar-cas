@@ -3,6 +3,13 @@
  "packages":
  [{"type": "path",
    "scope": "",
+   "name": "«sqlar-cas-bao»",
+   "manifestFile": "lake-manifest.json",
+   "inherited": false,
+   "dir": "bao",
+   "configFile": "lakefile.lean"},
+  {"type": "path",
+   "scope": "",
    "name": "«sqlar-cas-desync»",
    "manifestFile": "lake-manifest.json",
    "inherited": false,

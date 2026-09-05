@@ -58,7 +58,7 @@ def vector(name, plaintext, num_recipients):
 
 def main():
     OUT.mkdir(exist_ok=True)
-    vectors = [
+    generic = [
         ("single_recipient_small",  b"the quick brown fox jumps over the lazy dog", 1),
         ("three_recipients_small",  b"multi-recipient wrap set", 3),
         ("empty_payload",           b"", 1),
@@ -70,11 +70,27 @@ def main():
         ("repeated_content",        b"deadbeef" * 8192, 2),
         ("unicode_name",            "hello".encode() * 100, 1),
     ]
-    for name, pt, nr in vectors:
+    # Social-VR scenarios: single-owner private avatar, shared world with a
+    # small collaborator set, avatar shared to a friends list, ephemeral
+    # instance asset, cross-instance world, published-public file (recipient
+    # whose private key is openly published), and a post-revoke shared
+    # world documenting what a wrap deletion looks like.
+    scenarios = [
+        ("private_avatar",             os.urandom(200 * 1024),  1),
+        ("shared_world_small",         os.urandom(1024 * 1024), 5),
+        ("shared_world_medium",        os.urandom(2 * 1024 * 1024), 12),
+        ("friends_list_avatar",        os.urandom(200 * 1024), 10),
+        ("ephemeral_instance_asset",   os.urandom(10 * 1024),   1),
+        ("cross_instance_world",       os.urandom(1024 * 1024), 20),
+        ("published_public",           b"openly readable payload", 1),
+        ("post_revoke_shared_world",   os.urandom(1024 * 1024), 4),
+    ]
+    total = generic + scenarios
+    for name, pt, nr in total:
         blob = vector(name, pt, nr)
         (OUT / name).write_bytes(blob)
-        print(f"  wrote {name} ({len(pt)} B plaintext -> {len(blob)} B vector)")
-    print(f"generated {len(vectors)} vectors in {OUT}")
+        print(f"  wrote {name} ({len(pt)} B plaintext, {nr} recipient(s) -> {len(blob)} B vector)")
+    print(f"generated {len(total)} vectors in {OUT}")
 
 
 if __name__ == "__main__":
